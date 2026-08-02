@@ -1,237 +1,248 @@
-# 🚀 C++ Constants, Optimizations & Strings Cheat Sheet
+# 11.1–11.9 — Function Overloading & C++ Templates
 
-> A fast-reference summary covering C++ compile-time evaluation, string types (`std::string` vs `std::string_view`), memory allocation mechanics, and execution best practices.
-
----
-
-## 📄 1. Constants & Type Qualifiers
-
-### 💡 Core Distinction
-- **Named Constants:** Identifiers bound to an immutable value (`const`, `constexpr`, `enum`, `#define`).
-- **Literal Constants:** Unnamed explicit values directly written in code (`5`, `"hello"`).
-
-### ✍️ Declaration Styles
-
-```cpp
-// PREFERRED: Modifiers come before type (standard English convention)
-const double earthGravity { 9.8 };
-
-// ACCEPTABLE: East Const style
-double const standardPressure { 101.325 };
-
-// BAD PRACTICE: Preprocessor macro (ignores scope rules, hard to debug)
-#define EARTH_GRAVITY 9.8 
-```
-
-### ⚔️ `const` vs `constexpr`
-
-| Qualifier | Meaning | Evaluation Time | Primary Use Case |
-| :--- | :--- | :--- | :--- |
-| `const` | Value cannot change after initialization | Runtime or Compile-time | Runtime constants (e.g., user input) |
-| `constexpr` | Expresses a true compile-time constant | Must be Compile-time | Array dimensions, template bounds, constants |
-
-```cpp
-#include <iostream>
-
-int getRuntimeValue() { return 42; }
-
-int main() {
-    const int runtimeConst { getRuntimeValue() }; // OK: resolved at runtime
-    constexpr int compileConst { 100 };           // OK: resolved at compile-time
-    
-    // constexpr objects are implicitly const!
-    // compileConst = 200; // Compile Error
-}
-```
-
-> **📌 Best Practice Rules:**
-> - Prefer `constexpr` for any constant whose initializer can be calculated at compile-time.
-> - Fallback to `const` for runtime-only initializers.
-> - **Avoid** declaring function value parameters or return types as `const`.
+A comprehensive technical reference covering function overloading mechanics, overload resolution hierarchies, deleted functions, default arguments, and the generic programming architecture of C++ templates.
 
 ---
 
-## 🔢 2. Literals, Suffixes & Numeral Systems
+## 1. Function Overloading & Differentiation
 
-### 🏷️ Literal Suffixes
+**Function overloading** allows multiple functions in the same scope to share the exact same identifier, provided the compiler can structurally differentiate their signatures.
 
-```cpp
-// Integral Suffixes
-auto a { 5 };     // int (default)
-auto b { 5L };    // long (Always prefer uppercase 'L' over 'l')
-auto c { 5u };    // unsigned int
-auto d { 5ULL };  // unsigned long long
-auto e { 5z };    // signed std::size_t (C++23)
+### The Differentiation Matrix
 
-// Floating-Point Suffixes
-auto f1 { 4.1 };  // double (default)
-auto f2 { 4.1f }; // float (Avoids implicit double-to-float narrowing warnings)
-
-// Scientific Notation
-double avogadro { 6.02e23 }; // 6.02 * 10^23
-```
-
-### ⚙️ Numeral Systems & Digits Separation
-
-```cpp
-#include <iostream>
-#include <bitset>
-
-int main() {
-    int dec { 12 };          // Decimal (Base 10)
-    int oct { 014 };         // Octal (Base 8, Prefix 0) -> DISCOURAGED
-    int hex { 0x0C };        // Hexadecimal (Base 16, Prefix 0x)
-    int bin { 0b0000'1100 }; // Binary (Base 2, Prefix 0b) [C++14]
-                             // Note: Single quote `'` is a visual digit separator
-
-    // Formatting Stream Output
-    std::cout << std::hex << dec << '\n'; // Prints 'c'
-    std::cout << std::dec << dec << '\n'; // Resets to decimal
-
-    // Binary Formatting with std::bitset
-    std::cout << std::bitset<8>{ 0b0000'1100 } << '\n'; // Prints "00001100"
-}
-```
-
----
-
-## ⚡ 3. Compiler Optimizations & Compile-Time Programming
-
-### 🎯 Key Optimization Mechanics
-- **As-If Rule:** The compiler can freely alter machine instruction order or drop code completely as long as the **observable behavior** remains identical.
-- **Constant Folding:** Replacing expressions containing fixed values with calculated totals at compile-time (`3 + 4` $\rightarrow$ `7`).
-- **Constant Propagation:** Substituting variable identifiers directly with their known constant value.
-- **Dead Code Elimination:** Stripping out unused runtime variables or unreachable code paths.
-
-### 🛠️ `constexpr` Functions
-
-A `constexpr` function can execute at compile time **if** its arguments are constant expressions, but remains reusable at runtime for non-constant arguments.
-
-```cpp
-#include <iostream>
-
-constexpr int factorial(int n) {
-    return (n <= 1) ? 1 : (n * factorial(n - 1));
-}
-
-int main() {
-    // Compile-time evaluation guaranteed (initializer requires compile-time result)
-    constexpr int f5 { factorial(5) }; 
-
-    // Runtime evaluation (argument 'x' is non-const)
-    int x = 5;
-    int fRuntime { factorial(x) }; 
-}
-```
-
----
-
-## 🧵 4. Strings Mechanics: `std::string` vs `std::string_view`
-
-### 📊 Structural Comparison
-
-| Feature | `std::string` | `std::string_view` (C++17) |
+| Function Header Attribute | Can Overload/Differentiate? | Technical Notes |
 | :--- | :--- | :--- |
-| **Ownership** | Exclusive Owner (Manages its own buffer) | Observer / Viewer (Non-owning reference) |
-| **Allocation Cost**| Heavy (Allocates runtime heap memory) | Fast (Zero-allocation: Pointer + Length) |
-| **Null-Termination**| Guaranteed (`\0` terminated) | **Not guaranteed** (when viewing substrings) |
-| **`constexpr` Support**| Limited (C++20/23) | Fully Supported |
-| **Mutability** | Modifiable | Read-Only View |
+| **Number of Parameters** | **Yes** | Standard parameter count variance. |
+| **Type of Parameters** | **Yes** | Distinct parameter types differentiate overloads. |
+| **Return Type** | **No** | Return types are **ignored** during differentiation. |
+| **Type Aliases / Typedefs** | **No** | Aliases are not distinct types (`Age` vs `int` is ambiguous). |
+| **Value Parameter Constness**| **No** | `const int` passed by value is not distinct from `int`. |
+
+```cpp
+// ✅ Valid differentiation by parameter count and type
+int add(int x, int y);
+double add(double x, double y);
+int add(int x, int y, int z);
+
+// ❌ Invalid: Differs ONLY by return type (Compile Error)
+int getRandomValue();
+double getRandomValue(); 
+
+// ❌ Invalid: Type aliases do not create distinct types
+using Age = int;
+void print(int value);
+void print(Age value); // Compile Error: Redefinition
+```
+
+* **Type Signature:** The unique set of header parameters (identifier, parameter types, count, and constness modifiers) used by the compiler to identify a function.
+* **Name Mangling:** The compilation process where function signatures are transformed into unique internal symbol names (e.g., `__add_ii` vs `__add_dd`) so the linker can differentiate overloads.
 
 ---
 
-### 📝 `std::string` Usage Guidelines
+## 2. Overload Resolution Sequence
+
+When an overloaded function is called, the compiler resolves the call using a strict, 6-step argument matching hierarchy:
+
+1. **Exact Match:** Matches raw types exactly or via trivial conversions (e.g., lvalue to rvalue, non-const to const, or non-reference to reference).
+2. **Numeric Promotion:** Promotes narrow integral or floating-point types to wider base types (`char`/`bool` to `int`, `float` to `double`).
+3. **Numeric Conversion:** Applies standard conversions (e.g., `double` to `int`, `int` to `float`, or `long` to `double`).
+4. **User-Defined Conversion:** Applies class-defined implicit typecast operators or constructors.
+5. **Ellipsis Match:** Matches functions using variadic ellipsis (`...`) parameters.
+6. **Compile Error:** Build fails if no match is found.
+
+### Ambiguous Matches
+An **ambiguous match** occurs when two or more candidate functions match equally well at the *same step* of the resolution sequence.
+
+```cpp
+void print(unsigned int);
+void print(float);
+
+int main()
+{
+    // ❌ Ambiguous Match: '0' (int) can convert to 'unsigned int' or 'float' in Step 3
+    // print(0); 
+
+    // ✅ Resolution via explicit casting or literal suffixes
+    print(static_cast<unsigned int>(0)); 
+    print(0u); 
+}
+```
+
+---
+
+## 3. Deleting Functions (`= delete`)
+
+The `= delete` specifier explicitly forbids callers from invoking specific function signatures. 
+
+> 💡 **Key Insight:** `= delete` means "I forbid this call", not "this function does not exist". Deleted functions actively participate in overload resolution. If selected as the best match, compilation fails immediately.
 
 ```cpp
 #include <iostream>
-#include <string>
 
-int main() {
-    using namespace std::string_literals;
+void printInt(int x) { std::cout << x << '\n'; }
 
-    // Literal suffix 's' creates std::string instead of C-string
-    auto strObj { "Hello World"s }; 
+// Explicitly forbid char and bool arguments
+void printInt(char) = delete; 
+void printInt(bool) = delete; 
 
-    // Safe Input Reading with Whitespace Handling
-    std::string fullName {};
-    std::cout << "Enter full name: ";
-    // std::ws clears leftover newline/whitespace buffers before extraction
-    std::getline(std::cin >> std::ws, fullName);
-
-    // Length Handling (preventing signed/unsigned conversion warnings)
-    int length { static_cast<int>(fullName.length()) };
+int main()
+{
+    printInt(97);   // ✅ Valid: Calls printInt(int)
+    // printInt('a');  // ❌ Compile Error: Function explicitly deleted
+    // printInt(true); // ❌ Compile Error: Function explicitly deleted
 }
 ```
 
 ---
 
-### 🔍 `std::string_view` Usage & Undefined Behavior Pitfalls
+## 4. Default Arguments
+
+A **default argument** is a pre-specified parameter value automatically inserted by the compiler at the function call site if omitted by the caller.
 
 ```cpp
 #include <iostream>
-#include <string>
-#include <string_view>
 
-// PREFERRED: Pass std::string_view by value (Copying pointer + size is cheap!)
-void printSV(std::string_view sv) {
-    std::cout << sv << '\n';
+void print(int x, int y = 4); // Best Practice: Declare defaults in header/forward declaration
+
+void print(int x, int y)
+{
+    std::cout << "x: " << x << " | y: " << y << '\n';
 }
 
-int main() {
-    using namespace std::string_view_literals;
-
-    // Cheap Zero-Allocation Symbolic Constant
-    constexpr std::string_view sv { "Static Read-Only Text"sv };
-
-    // Substring Windowing without Allocation
-    std::string text { "Hello World" };
-    std::string_view view { text };
-    
-    view.remove_prefix(1); // Drops 'H' -> "ello World"
-    view.remove_suffix(3); // Drops "rld" -> "ello Wo"
-
-    // ----------------------------------------------------
-    // ⚠️ CRITICAL PITFALLS (Undefined Behavior)
-    // ----------------------------------------------------
-    
-    // Danger 1: Viewing Temporary std::string Objects
-    // std::string_view badView { "Temp String"s }; 
-    // std::cout << badView; // BUG: Temporary string was destroyed!
-
-    // Danger 2: Invalidation via Modification
-    // std::string base { "Buffer Text" };
-    // std::string_view viewBase { base };
-    // base = "Reallocating large text triggers memory reallocation!";
-    // std::cout << viewBase; // BUG: viewBase points to deallocated heap address!
+int main()
+{
+    print(1, 2); // Explicit arguments: x = 1, y = 2
+    print(3);    // Default inserted:   x = 3, y = 4
 }
 ```
+
+* **Rightmost Rule:** If a parameter receives a default value, all trailing parameters to its right **must** also have default values.
+* **Ambiguity Risk:** Overloaded functions with default arguments can easily collide:
+  ```cpp
+  void foo(int x = 0);
+  void foo(double d = 0.0);
+
+  // foo(); // ❌ Compile Error: Ambiguous call (could match either default)
+  ```
 
 ---
 
-## 🧠 5. String Decision Matrix
+## 5. Introduction to C++ Function Templates
 
-```text
-                           [ String Choice Tree ]
-                                     |
-                   Is this a function parameter?
-                   /                           \
-                (Yes)                          (No)
-                 /                               \
-   Is read-only access needed?        Do you need to store / modify data?
-     /                  \               /                           \
-  (Yes)                 (No)         (Yes)                          (No)
-   /                      \           /                               \
-std::string_view      std::string&  std::string             std::string_view
-(C++17 zero-copy)     (In/Out)      (Owner of text)         (Symbolic constant)
+**Function templates** act as stencils for generating generic code. Instead of manually writing multiple identical functions for different types, a single template definition allows the compiler to generate function specializations dynamically.
+
+```cpp
+#include <iostream>
+
+// Primary Template Declaration
+template <typename T> // 'T' is a type template parameter
+T max(T x, T y)
+{
+    return (x < y) ? y : x;
+}
+
+int main()
+{
+    // Explicit type specification
+    std::cout << max<int>(1, 2) << '\n';
+
+    // Template Argument Deduction (Compiler infers 'double')
+    std::cout << max(1.5, 2.5) << '\n'; 
+}
 ```
 
-### ⚡ Summary Checklist
-1. **Function Parameters:**
-   - Use `std::string_view` by value for read-only string parameters.
-   - Use `const std::string&` only if passing to external legacy code requiring C-style null-termination.
-2. **Function Returns:**
-   - Return `std::string` by value for local variables (leveraging move semantics).
-   - Return `std::string_view` **only** for C-string literals or `std::string_view` parameters passed in that outlive the call. **Never return a view of a local variable!**
-3. **Variables:**
-   - Use `std::string` when managing owned or dynamic input.
-   - Use `constexpr std::string_view` for symbolic text constants.
+### Template Argument Deduction Rules
+* When called without explicit angled brackets (`max(1, 2)`), the compiler deduces `T` directly from argument types.
+* **Non-Template Preference:** If a non-template overload and a template specialization match a call equally well, the **non-template function is preferred**.
+
+---
+
+## 6. Multi-Type Templates & Abbreviated Templates
+
+If a template function requires independent parameters that may differ in type, supply multiple type parameters (`typename T, typename U`).
+
+```cpp
+#include <iostream>
+
+template <typename T, typename U>
+auto max(T x, U y) // 'auto' deduces common return type to avoid narrowing
+{
+    return (x < y) ? y : x;
+}
+
+int main()
+{
+    std::cout << max(2, 3.5) << '\n'; // Deduces T = int, U = double -> returns 3.5
+}
+```
+
+### Abbreviated Function Templates (C++20)
+C++20 simplifies multi-type template syntax by allowing `auto` in parameter lists:
+
+```cpp
+// C++20 Abbreviated Function Template
+auto max(auto x, auto y) // Implicitly creates template <typename T, typename U>
+{
+    return (x < y) ? y : x;
+}
+```
+
+> 💡 **Best Practice:** Use abbreviated function templates freely when parameters are intended to vary independently. If parameters MUST enforce identical types, stick to traditional `template <typename T>` syntax.
+
+---
+
+## 7. Non-Type Template Parameters
+
+A **non-type template parameter** is a parameter with a fixed type that holds a compile-time `constexpr` value rather than a type.
+
+```cpp
+#include <iostream>
+
+template <int N> // 'N' is a non-type template parameter
+void printNumber()
+{
+    std::cout << "Compile-time constant: " << N << '\n';
+}
+
+// C++17 'auto' non-type parameter deduction
+template <auto N>
+void printAuto()
+{
+    std::cout << N << '\n';
+}
+
+int main()
+{
+    printNumber<5>();   // Instantiates printNumber<5>()
+    printAuto<'c'>();   // Deduces N as char 'c'
+}
+```
+
+* **Primary Use Case:** Non-type template parameters are used when values are strictly required at compile-time (such as `static_assert` checks or buffer sizes like `std::bitset<8>`).
+
+---
+
+## 8. Multi-File Template Architecture
+
+Function templates cannot easily separate forward declarations in `.h` files from definitions in `.cpp` files. 
+
+* **The Linker Failure:** Compiling a `.cpp` file that calls a template only sees the header's forward declaration. The translation unit containing the template definition cannot see the target instantiation types, causing the compiler to omit binary code generation, resulting in an `unresolved external symbol` linker error.
+* **The Header-Only Solution:** Place complete template definitions inside header files (`.h`) and `#include` them wherever needed.
+
+### ODR & Inline Exemption
+* Template definitions themselves are exempt from standard single-definition limits across translation units.
+* Implicitly instantiated template specializations are **implicitly inline**, preventing ODR violations when included across multiple source files.
+
+```cpp
+// max.h
+#ifndef MAX_H
+#define MAX_H
+
+template <typename T>
+T max(T x, T y) // Full definition MUST reside in header file
+{
+    return (x < y) ? y : x;
+}
+
+#endif
+```
